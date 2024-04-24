@@ -1,5 +1,4 @@
 const exec = require('child_process').exec;
-
 const path = require('path');
 
 const PLUGIN_ID = require('../plugin.json').id;
@@ -12,8 +11,7 @@ if (NPM_TARGET === 'build:watch' || NPM_TARGET === 'debug:watch') {
     plugins.push({
         apply: (compiler) => {
             compiler.hooks.watchRun.tap('WatchStartPlugin', () => {
-                // eslint-disable-next-line no-console
-                console.log('Change detected. Rebuilding webapp.');
+                console.log('Change detected. Rebuilding webapp.'); // eslint-disable-line no-console
             });
             compiler.hooks.afterEmit.tap('AfterEmitPlugin', () => {
                 exec('cd .. && make deploy-from-watch', (err, stdout, stderr) => {
@@ -30,9 +28,7 @@ if (NPM_TARGET === 'build:watch' || NPM_TARGET === 'debug:watch') {
 }
 
 const config = {
-    entry: [
-        './src/index.tsx',
-    ],
+    entry: ['./src/index.jsx'], // Updated entry point to .js
     resolve: {
         alias: {
             '@': path.resolve(__dirname, 'src'),
@@ -42,19 +38,17 @@ const config = {
             'node_modules',
             path.resolve(__dirname),
         ],
-        extensions: ['*', '.js', '.jsx', '.ts', '.tsx'],
+        extensions: ['*', '.js', '.jsx'], // Removed .ts and .tsx
     },
     module: {
         rules: [
             {
-                test: /\.(js|jsx|ts|tsx)$/,
+                test: /\.(js|jsx)$/, // Updated to only include .js and .jsx
                 exclude: /node_modules/,
                 use: {
                     loader: 'babel-loader',
                     options: {
                         cacheDirectory: true,
-
-                        // Babel configuration is in babel.config.js because jest requires it to be there.
                     },
                 },
             },
@@ -62,9 +56,7 @@ const config = {
                 test: /\.(scss|css)$/,
                 use: [
                     'style-loader',
-                    {
-                        loader: 'css-loader',
-                    },
+                    'css-loader',
                     {
                         loader: 'sass-loader',
                         options: {
@@ -92,12 +84,12 @@ const config = {
         publicPath: '/',
         filename: 'main.js',
     },
-    mode: (isDev) ? 'eval-source-map' : 'production',
+    mode: isDev ? 'eval-source-map' : 'production',
     plugins,
 };
 
 if (isDev) {
-    Object.assign(config, {devtool: 'eval-source-map'});
+    Object.assign(config, { devtool: 'eval-source-map' });
 }
 
 module.exports = config;

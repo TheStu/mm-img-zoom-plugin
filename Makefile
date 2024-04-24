@@ -11,6 +11,9 @@ DEFAULT_GOOS := $(shell go env GOOS)
 DEFAULT_GOARCH := $(shell go env GOARCH)
 
 export GO111MODULE=on
+export NODE_OPTIONS=--openssl-legacy-provider
+export MM_SERVICESETTINGS_SITEURL=http://localhost:8065
+export MM_ADMIN_TOKEN=edipoprfwp8duqikuni6bckwnc
 
 # We need to export GOBIN to allow it to be set
 # for processes spawned from the Makefile

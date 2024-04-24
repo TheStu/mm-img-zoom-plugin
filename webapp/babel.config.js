@@ -1,6 +1,3 @@
-// Copyright (c) 2015-present Mattermost, Inc. All Rights Reserved.
-// See LICENSE.txt for license information.
-
 const config = {
     presets: [
         ['@babel/preset-env', {
@@ -19,10 +16,6 @@ const config = {
         ['@babel/preset-react', {
             useBuiltIns: true,
         }],
-        ['@babel/typescript', {
-            allExtensions: true,
-            isTSX: true,
-        }],
         ['@emotion/babel-preset-css-prop'],
     ],
     plugins: [
@@ -30,15 +23,14 @@ const config = {
         '@babel/plugin-syntax-dynamic-import',
         '@babel/proposal-object-rest-spread',
         '@babel/plugin-proposal-optional-chaining',
-        'babel-plugin-typescript-to-proptypes',
     ],
 };
 
 // Jest needs module transformation
 config.env = {
     test: {
-        presets: config.presets,
-        plugins: config.plugins,
+        presets: [...config.presets],
+        plugins: [...config.plugins],
     },
 };
 config.env.test.presets[0][1].modules = 'auto';
