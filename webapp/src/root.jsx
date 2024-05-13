@@ -6,13 +6,21 @@ import { fetchData } from './fetch/followers';
 import MattermostContext from './contexts/MattermostContext';
 
 import UnfollowBtn from './unfollowBtn';
+import StoreContext from './contexts/StoreContext';
 
 function Root() {
-    const { data, error, isLoading } = useQuery(['followedUsers'], fetchData);
     const mmProps = useContext(MattermostContext);
+    const store = useContext(StoreContext);
+    const state = store.getState();
+    let { SiteURL } = state.entities.general.config;
+    if (SiteURL === '') {
+        SiteURL = 'http://localhost:8065';
+    }
+
+    const { data, error, isLoading } = useQuery(['followedUsers'], () => fetchData(SiteURL));
 
     if (isLoading) {
-        return '';
+        return 'Loading...';
     }
 
     if (error) {

@@ -5,12 +5,20 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import MattermostContext from './contexts/MattermostContext';
 import { extractCsrfToken } from './utilities/cookies';
 
+import StoreContext from './contexts/StoreContext';
+
 function FollowBtn() {
     const queryClient = useQueryClient();
     const mmProps = useContext(MattermostContext);
+    const store = useContext(StoreContext);
+    const state = store.getState();
+    let { SiteURL } = state.entities.general.config;
+    if (SiteURL === '') {
+        SiteURL = 'http://localhost:8065';
+    }
 
     const mutation = useMutation({
-        mutationFn: (newFollow) => axios.post('http://localhost:8065/plugins/com.tcg.followers/follow', newFollow, { headers: { 'X-CSRF-Token': extractCsrfToken() } }),
+        mutationFn: (newFollow) => axios.post(`${SiteURL}/plugins/com.tcg.followers/follow`, newFollow, { headers: { 'X-CSRF-Token': extractCsrfToken() } }),
         onSuccess: () => {
             queryClient.setQueryData(['followedUsers'], (oldQueryData) => {
                 return [...oldQueryData, mmProps.user.id];

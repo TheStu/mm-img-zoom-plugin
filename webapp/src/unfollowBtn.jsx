@@ -5,12 +5,20 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import MattermostContext from './contexts/MattermostContext';
 import { extractCsrfToken } from './utilities/cookies';
 
+import StoreContext from './contexts/StoreContext';
+
 function UnfollowBtn() {
     const queryClient = useQueryClient();
     const mmProps = useContext(MattermostContext);
+    const store = useContext(StoreContext);
+    const state = store.getState();
+    let { SiteURL } = state.entities.general.config;
+    if (SiteURL === '') {
+        SiteURL = 'http://localhost:8065';
+    }
 
     const mutation = useMutation({
-        mutationFn: (newFollow) => axios.delete(`http://localhost:8065/plugins/com.tcg.followers/follow?follow_id=${mmProps.user.id}`, newFollow, { headers: { 'X-CSRF-Token': extractCsrfToken() } }),
+        mutationFn: () => axios.delete(`${SiteURL}/plugins/com.tcg.followers/follow?follow_id=${mmProps.user.id}`, { headers: { 'X-CSRF-Token': extractCsrfToken() } }),
         onSuccess: () => {
             queryClient.setQueryData(['followedUsers'], (oldQueryData) => {
                 return oldQueryData.filter((id) => id !== mmProps.user.id);
@@ -21,13 +29,6 @@ function UnfollowBtn() {
         },
     });
 
-    const sendUnfollowRequest = () => {
-        const userData = {
-            follow_id: mmProps.user.id,
-        };
-        mutation.mutate(userData);
-    };
-
     return (
         <div
             className='popover__row'
@@ -37,7 +38,7 @@ function UnfollowBtn() {
                 type='button'
                 className='btn'
                 style={{ width: '100%' }}
-                onClick={sendUnfollowRequest}
+                onClick={mutation.mutate}
                 disabled={mutation.isLoading}
             >
                 {mutation.isLoading ? (

@@ -26,11 +26,6 @@ type Plugin struct {
 	configuration *configuration
 }
 
-func (p *Plugin) NotificationWillBePushed(pushNotification *model.PushNotification, userID string) (*model.PushNotification, string) {
-	p.API.LogInfo("********************** Sending push notification " + fmt.Sprintf("%+v", pushNotification))
-	return nil, ""
-}
-
 func (p *Plugin) MessageHasBeenPosted(c *plugin.Context, post *model.Post) {
 	// check to see if anyone is following the user who posted the message
 	// if a user is following the user who posted the message, send a push notification
@@ -105,9 +100,7 @@ func (p *Plugin) MessageHasBeenPosted(c *plugin.Context, post *model.Post) {
 		}
 	}
 
-	// hasFiles := post.FileIds != nil && len(post.FileIds) > 0
-
-	msg.Message = postMessage + " BANANA"
+	msg.Message = postMessage
 
 	for _, follower := range followers {
 		p.SendPushNotification(follower, msg)
@@ -116,10 +109,14 @@ func (p *Plugin) MessageHasBeenPosted(c *plugin.Context, post *model.Post) {
 
 // ServeHTTP demonstrates a plugin that handles HTTP requests by greeting the world.
 func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Request) {
-	p.API.LogInfo("************************ Requested URL Path: " + r.URL.Path)
-	if r.URL.Path == "/hello" {
-		w.Write([]byte("Hello, world!"))
-	} else if r.URL.Path == "/all_follows" {
+	// p.API.LogInfo("************************ Requested URL Path: " + r.URL.Path)
+	switch r.URL.Path {
+	case "/hello":
+		_, wErr := w.Write([]byte("Hello, world!"))
+		if wErr != nil {
+			p.API.LogError("Failed to write response", "error", wErr.Error())
+		}
+	case "/all_follows":
 		switch r.Method {
 		case http.MethodGet:
 			data, appErr := p.AllFollows()
@@ -138,16 +135,19 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 			// Respond with the data
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write(dataBytes)
+			_, wErr := w.Write(dataBytes)
+			if wErr != nil {
+				p.API.LogError("Failed to write response", "error", wErr.Error())
+			}
 		default:
 			http.NotFound(w, r)
 			return
 		}
-	} else if r.URL.Path == "/delete_all_follows" {
+	case "/delete_all_follows":
 		switch r.Method {
 		case http.MethodGet:
 			if appErr := p.KVDeleteAll(); appErr != nil {
-				http.Error(w, appErr.Message, http.StatusInternalServerError)
+				http.Error(w, appErr.Error(), http.StatusInternalServerError)
 				return
 			}
 
@@ -156,7 +156,7 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 			http.NotFound(w, r)
 			return
 		}
-	} else if r.URL.Path == "/follow" {
+	case "/follow":
 		switch r.Method {
 		case http.MethodPost:
 			// Handle POST request as previously defined
@@ -193,8 +193,8 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 			return
 		case http.MethodDelete:
 			// Handle DELETE request
-			followId := r.URL.Query().Get("follow_id")
-			if followId == "" {
+			followID := r.URL.Query().Get("follow_id")
+			if followID == "" {
 				http.Error(w, "follow_id is required", http.StatusBadRequest)
 				return
 			}
@@ -205,7 +205,7 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 				return
 			}
 
-			if appErr := p.Unfollow(mattermostUserID, followId); appErr != nil {
+			if appErr := p.Unfollow(mattermostUserID, followID); appErr != nil {
 				http.Error(w, appErr.Error(), http.StatusInternalServerError)
 				return
 			}
@@ -242,51 +242,63 @@ func (p *Plugin) ServeHTTP(c *plugin.Context, w http.ResponseWriter, r *http.Req
 			// Respond with the JSON data
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
-			w.Write(jsonData)
+			_, wErr := w.Write(jsonData)
+			if wErr != nil {
+				p.API.LogError("Failed to write response", "error", wErr.Error())
+			}
 		default:
 			http.NotFound(w, r)
 			return
 		}
-	} else {
+	default:
 		http.NotFound(w, r)
 	}
 }
 
-func (p *Plugin) Follow(currentUserID, followerId string) error {
+func (p *Plugin) Follow(currentUserID, followerID string) error {
 	currentFollows, err := p.ListFollows(currentUserID)
 	if err != nil {
 		return err
 	}
 
-	currentFollows = append(currentFollows, followerId)
-	p.KVSet(fmt.Sprintf("%s:following", currentUserID), currentFollows)
+	currentFollows = append(currentFollows, followerID)
+	err = p.KVSet(fmt.Sprintf("%s:following", currentUserID), currentFollows)
+	if err != nil {
+		return err
+	}
 
-	followerFollowedBy, err := p.ListFollowedBy(followerId)
+	followerFollowedBy, err := p.ListFollowedBy(followerID)
 	if err != nil {
 		return err
 	}
 
 	followerFollowedBy = append(followerFollowedBy, currentUserID)
-	p.KVSet(fmt.Sprintf("%s:followed_by", followerId), followerFollowedBy)
+	err = p.KVSet(fmt.Sprintf("%s:followed_by", followerID), followerFollowedBy)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
 
-func (p *Plugin) Unfollow(currentUserID, followerId string) error {
+func (p *Plugin) Unfollow(currentUserID, followerID string) error {
 	currentFollows, err := p.ListFollows(currentUserID)
 	if err != nil {
 		return err
 	}
 
 	for i, id := range currentFollows {
-		if id == followerId {
+		if id == followerID {
 			currentFollows = append(currentFollows[:i], currentFollows[i+1:]...)
 			break
 		}
 	}
-	p.KVSet(fmt.Sprintf("%s:following", currentUserID), currentFollows)
+	err = p.KVSet(fmt.Sprintf("%s:following", currentUserID), currentFollows)
+	if err != nil {
+		return err
+	}
 
-	followerFollowedBy, err := p.ListFollowedBy(followerId)
+	followerFollowedBy, err := p.ListFollowedBy(followerID)
 	if err != nil {
 		return err
 	}
@@ -297,7 +309,10 @@ func (p *Plugin) Unfollow(currentUserID, followerId string) error {
 			break
 		}
 	}
-	p.KVSet(fmt.Sprintf("%s:followed_by", followerId), followerFollowedBy)
+	err = p.KVSet(fmt.Sprintf("%s:followed_by", followerID), followerFollowedBy)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -348,8 +363,8 @@ func (p *Plugin) AllFollows() (map[string][]string, error) {
 	return followData, nil
 }
 
-func (p *Plugin) ListFollowedBy(userId string) ([]string, error) {
-	data, err := p.KVGet(fmt.Sprintf("%s:followed_by", userId))
+func (p *Plugin) ListFollowedBy(userID string) ([]string, error) {
+	data, err := p.KVGet(fmt.Sprintf("%s:followed_by", userID))
 	if err != nil {
 		return nil, err // Return immediately if there's an error fetching the data
 	}
@@ -365,25 +380,45 @@ func (p *Plugin) ListFollowedBy(userId string) ([]string, error) {
 	return follows, nil // Return the successfully unmarshaled slice
 }
 
-func (p *Plugin) KVSet(key string, v interface{}) *model.AppError {
+func (p *Plugin) KVSet(key string, v interface{}) error {
 	data, err := json.Marshal(v)
 	if err != nil {
-		return &model.AppError{Message: err.Error()}
+		return err
 	}
 
-	return p.API.KVSet(key, data)
+	mErr := p.API.KVSet(key, data)
+	if mErr != nil {
+		return mErr.Unwrap()
+	}
+
+	return nil
 }
 
-func (p *Plugin) KVDelete(key string) *model.AppError {
-	return p.API.KVDelete(key)
+func (p *Plugin) KVDelete(key string) error {
+	mErr := p.API.KVDelete(key)
+	if mErr != nil {
+		return mErr.Unwrap()
+	}
+
+	return nil
 }
 
-func (p *Plugin) KVDeleteAll() *model.AppError {
-	return p.API.KVDeleteAll()
+func (p *Plugin) KVDeleteAll() error {
+	mErr := p.API.KVDeleteAll()
+	if mErr != nil {
+		return mErr.Unwrap()
+	}
+
+	return nil
 }
 
-func (p *Plugin) KVGet(key string) ([]byte, *model.AppError) {
-	return p.API.KVGet(key)
+func (p *Plugin) KVGet(key string) ([]byte, error) {
+	b, err := p.API.KVGet(key)
+	if err != nil {
+		return b, err.Unwrap()
+	}
+
+	return b, nil
 }
 
 func (p *Plugin) SendPushNotification(userID string, notification *model.PushNotification) {

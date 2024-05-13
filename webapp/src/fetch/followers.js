@@ -1,8 +1,8 @@
 import axios from 'axios';
 
-export async function fetchData() {
+export async function fetchData(siteURL) {
     try {
-        const response = await axios.get('http://localhost:8065/plugins/com.tcg.followers/follow');
+        const response = await axios.get(`${siteURL}/plugins/com.tcg.followers/follow`);
         return response.data;
     } catch (error) {
         // Handle errors by throwing them
