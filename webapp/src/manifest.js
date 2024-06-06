@@ -2,9 +2,9 @@
 
 const manifest = JSON.parse(`
 {
-    "id": "com.tcg.followers",
-    "name": "TCG Followers",
-    "description": "This plugin adds functionality for push notifications when followed users post.",
+    "id": "com.tcg.image-zoom",
+    "name": "TCG Image Zoom",
+    "description": "This plugin adds functionality for image zooming.",
     "homepage_url": "https://github.com/mattermost/mattermost-plugin-starter-template",
     "support_url": "https://github.com/mattermost/mattermost-plugin-starter-template/issues",
     "icon_path": "assets/starter-template-icon.svg",

@@ -1,37 +1,72 @@
-import { useQuery } from '@tanstack/react-query';
 import { useContext } from 'react';
 
-import FollowBtn from './followBtn';
-import { fetchData } from './fetch/followers';
-import MattermostContext from './contexts/MattermostContext';
+import {getFilePreviewUrl, getFileDownloadUrl} from 'mattermost-redux/utils/file_utils';
 
-import UnfollowBtn from './unfollowBtn';
-import StoreContext from './contexts/StoreContext';
+import './root.scss';
+
+import {TransformWrapper, TransformComponent} from 'react-zoom-pan-pinch';
+
+import MattermostContext from './contexts/MattermostContext';
 
 function Root() {
     const mmProps = useContext(MattermostContext);
-    const store = useContext(StoreContext);
-    const state = store.getState();
-    let { SiteURL } = state.entities.general.config;
-    if (SiteURL === '') {
-        SiteURL = 'http://localhost:8065';
+    const { fileInfo } = mmProps;
+
+    const isExternalFile = !fileInfo.id;
+
+    let fileUrl;
+    let previewUrl;
+    if (isExternalFile) {
+        fileUrl = fileInfo.link;
+        previewUrl = fileInfo.link;
+    } else {
+        fileUrl = getFileDownloadUrl(fileInfo.id);
+        previewUrl = fileInfo.has_preview_image ? getFilePreviewUrl(fileInfo.id) : fileUrl;
     }
 
-    const { data, error, isLoading } = useQuery(['followedUsers'], () => fetchData(SiteURL));
+    // if (!canDownloadFiles) {
+    //     return <img src={previewUrl}/>;
+    // }
 
-    if (isLoading) {
-        return 'Loading...';
-    }
-
-    if (error) {
-        return <div>{`Error: ${error.message}`}</div>;
-    }
-
-    if (data.includes(mmProps.user.id)) {
-        return <UnfollowBtn/>;
-    }
-
-    return <FollowBtn/>;
+    return (
+        <div className='image_preview__container'>
+            <TransformWrapper>
+                {({zoomIn, zoomOut, resetTransform}) => (
+                    <>
+                        <div className='image_preview_zoom_actions__actions'>
+                            <button
+                                onClick={() => zoomIn()}
+                                className='image_preview_zoom_actions__action-item'
+                            >
+                                <i className='icon icon-plus'/>
+                            </button>
+                            <button
+                                onClick={() => zoomOut()}
+                                className='image_preview_zoom_actions__action-item'
+                            >
+                                <i className='icon icon-minus'/>
+                            </button>
+                            <button
+                                onClick={() => resetTransform()}
+                                className='image_preview_zoom_actions__action-item'
+                            >
+                                <i className='icon icon-refresh'/>
+                            </button>
+                        </div>
+                        <TransformComponent>
+                            <img
+                                className='image_preview__image'
+                                loading='lazy'
+                                data-testid='imagePreview'
+                                alt={'preview url image'}
+                                src={previewUrl}
+                            />
+                        </TransformComponent>
+                    </>
+                )}
+            </TransformWrapper>
+        </div>
+    );
 }
 
 export default Root;
